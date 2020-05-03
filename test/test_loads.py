@@ -59,3 +59,18 @@ def test_loads_untyped():
 
     assert j[0].position["x"] == 2
     assert j[0].position["y"] == 3
+
+
+def test_loads_named_value():
+    j = jbon.loads(
+        r"""
+        Button {
+            position,
+            color,
+            text
+        }
+        Button:MainMenu( {x = 3, y = 10}, { r = 32, g = 34, b = 22}, "Play")
+        """
+    )
+
+    assert j["MainMenu"].text == "Play"

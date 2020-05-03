@@ -1,4 +1,4 @@
-from lark import Lark, Transformer
+from lark import Lark, Token, Transformer
 
 jbon_grammar = r"""
     jbon: ( class_decl | value )*
@@ -14,7 +14,7 @@ jbon_grammar = r"""
           | "true"        -> true
           | "false"       -> false
 
-    constructed: CNAME "(" [ value ("," value)* ] ")"
+    constructed: CNAME [ ":" CNAME ] "(" [ value ("," value)* ] ")"
     obj: "{" [ obj_entry ("," obj_entry)* ] "}"
     obj_entry: CNAME "=" value
     array: "[" [ value ("," value)* ] "]"
@@ -48,7 +48,10 @@ class JbonTransformer(Transformer):
         return ClassDecl(str(decl[0]), [str(d) for d in decl[1:]])
 
     def constructed(self, values):
-        return Constructed(values[0], values[1:])
+        if isinstance(values[1], Token) and values[1].type == "CNAME":
+            return Constructed(values[0], values[2:], str(values[1]))
+        else:
+            return Constructed(values[0], values[1:])
 
     def string(self, s):
         (s,) = s
@@ -58,8 +61,10 @@ class JbonTransformer(Transformer):
         (n,) = n
         return float(n)
 
+    def obj_entry(self, e):
+        return (str(e[0]), e[1])
+
     obj = dict
-    obj_entry = tuple
     array = list
     pair = tuple
 
@@ -73,7 +78,10 @@ class Container:
         self.values = values
 
     def __getitem__(self, idx):
-        v = self.values[idx]
+        try:
+            v = self.values[idx]
+        except TypeError:
+            v = next(v for v in self.values if v.identifier == idx)
 
         try:
             v.in_container(self)
@@ -99,9 +107,10 @@ class ClassDecl:
 
 
 class Constructed:
-    def __init__(self, name, values):
+    def __init__(self, name, values, identifier=None):
         self._name = name
         self._values = values
+        self.identifier = identifier
 
     def in_container(self, container):
         self.container = container
