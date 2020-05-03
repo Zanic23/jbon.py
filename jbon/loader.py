@@ -6,10 +6,17 @@ jbon_grammar = r"""
     class_decl: CNAME "{" [ CNAME ("," CNAME)* ] "}"
 
     ?value: constructed
+          | obj
+          | array
+          | pair
           | string
           | SIGNED_NUMBER -> number
 
     constructed: CNAME "(" [ value ("," value)* ] ")"
+    obj: "{" [ obj_entry ("," obj_entry)* ] "}"
+    obj_entry: CNAME "=" value
+    array: "[" [ value ("," value)* ] "]"
+    pair: "<" value "," value ">"
     string: ESCAPED_STRING
 
     %import common.ESCAPED_STRING
@@ -22,6 +29,13 @@ jbon_grammar = r"""
 jbon_parser = Lark(jbon_grammar, start="jbon", parser="lalr")
 
 
+def loads(s):
+    tree = jbon_parser.parse(s)
+    print(tree.pretty())
+    print(JbonTransformer().transform(tree))
+    return JbonTransformer().transform(tree)
+
+
 class JbonTransformer(Transformer):
     def jbon(self, jbons):
         class_decls = [c for c in jbons if isinstance(c, ClassDecl)]
@@ -29,7 +43,7 @@ class JbonTransformer(Transformer):
         return Container(class_decls, values)
 
     def class_decl(self, decl):
-        return ClassDecl(decl[0], [str(d) for d in decl[1:]])
+        return ClassDecl(str(decl[0]), [str(d) for d in decl[1:]])
 
     def constructed(self, values):
         return Constructed(values[0], values[1:])
@@ -41,6 +55,11 @@ class JbonTransformer(Transformer):
     def number(self, n):
         (n,) = n
         return float(n)
+
+    obj = dict
+    obj_entry = tuple
+    array = list
+    pair = tuple
 
 
 class Container:
@@ -76,23 +95,19 @@ class ClassDecl:
 
 class Constructed:
     def __init__(self, name, values):
-        self.name = name
-        self.values = values
+        self._name = name
+        self._values = values
 
     def in_container(self, container):
         self.container = container
 
-    def __getitem__(self, field):
-        class_decl = self.container.class_decl(self.name)
+    def __getattr__(self, name):
+        return self[name]
 
-        return next(v for f, v in zip(class_decl.fields, self.values) if f == field)
+    def __getitem__(self, field):
+        class_decl = self.container.class_decl(self._name)
+
+        return next(v for f, v in zip(class_decl.fields, self._values) if f == field)
 
     def __repr__(self):
-        return f"Constructed({self.name}, {self.values})"
-
-
-def loads(s):
-    tree = jbon_parser.parse(s)
-    # print(tree.pretty())
-    print(JbonTransformer().transform(tree))
-    return JbonTransformer().transform(tree)
+        return f"Constructed({self._name}, {self._values})"
