@@ -11,6 +11,8 @@ jbon_grammar = r"""
           | pair
           | string
           | SIGNED_NUMBER -> number
+          | "true"        -> true
+          | "false"       -> false
 
     constructed: CNAME "(" [ value ("," value)* ] ")"
     obj: "{" [ obj_entry ("," obj_entry)* ] "}"
@@ -60,6 +62,9 @@ class JbonTransformer(Transformer):
     obj_entry = tuple
     array = list
     pair = tuple
+
+    true = lambda self, _: True
+    false = lambda self, _: False
 
 
 class Container:

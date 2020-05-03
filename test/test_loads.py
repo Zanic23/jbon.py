@@ -38,3 +38,24 @@ def test_loads_more_types():
     party = j[0]
     assert party.location == {"x": 4, "y": 3}
     assert party.couples == [("John", "Penny"), ("Marry", "Joe")]
+
+
+def test_loads_untyped():
+    j = jbon.loads(
+        r"""
+        Mouse {
+            position,
+            click
+        }
+        Mouse({x = 2, y = 3}, true)
+        Mouse({x = 2, y = 3}, "Nope")
+        Mouse({x = 2, y = 3}, 324)
+        """
+    )
+
+    assert j[0].click == True
+    assert j[1].click == "Nope"
+    assert j[2].click == 324
+
+    assert j[0].position["x"] == 2
+    assert j[0].position["y"] == 3
