@@ -1,0 +1,6 @@
+.coverage
+.eggs
+.tox
+jbon.egg-info
+tags
+__pycache__
